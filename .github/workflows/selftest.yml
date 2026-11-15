@@ -112,6 +112,19 @@ jobs:
           advanced-security: false
           inputs: tests/multiple-workflows/*.yaml
 
+  selftest-inputs-expanded:
+    name: "TEST: placeholder"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: $/
+        id: zizmor
+        continue-on-error: true
+        with:
+          advanced-security: false
+          inputs: |
+            tests/multiple-workflows/one.yaml
+            tests/multiple-workflows/two.yaml
+
   selftest-plain-gha-hazmat-offline-audits-xfail:
     name: "TEST: known findings in woodruffw/gha-hazmat with offline audits (expected to fail when 'advanced-security: false')"
     runs-on: ubuntu-latest
