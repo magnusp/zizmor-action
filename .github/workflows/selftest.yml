@@ -101,6 +101,22 @@ jobs:
 
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
 
+  selftest-inputs-default:
+    name: "TEST: 'inputs' defaults to '.'"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No `inputs` key here: this is the only job that exercises the default
+      # value of `inputs`, and with it the literal-path branch of the glob
+      # expansion.
+      - uses: $/
+        id: zizmor
+        with:
+          advanced-security: false
+
   selftest-inputs-globbing:
     name: "TEST: 'inputs' expands a glob pattern"
     runs-on: ubuntu-latest
@@ -300,6 +316,7 @@ jobs:
       - selftest-version-nonexistent-xfail
       - selftest-plain
       - selftest-plain-gha-hazmat-xfail
+      - selftest-inputs-default
       - selftest-inputs-globbing
       - selftest-inputs-globbing-recursive
       - selftest-inputs-glob-no-match-xfail
