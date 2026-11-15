@@ -101,6 +101,17 @@ jobs:
 
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
 
+  selftest-inputs-globbing:
+    name: "TEST: placeholder"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: $/
+        id: zizmor
+        continue-on-error: true
+        with:
+          advanced-security: false
+          inputs: tests/multiple-workflows/*.yaml
+
   selftest-plain-gha-hazmat-offline-audits-xfail:
     name: "TEST: known findings in woodruffw/gha-hazmat with offline audits (expected to fail when 'advanced-security: false')"
     runs-on: ubuntu-latest
@@ -228,6 +239,7 @@ jobs:
       - selftest-version-nonexistent-xfail
       - selftest-plain
       - selftest-plain-gha-hazmat-xfail
+      - selftest-inputs-globbing
       - selftest-plain-gha-hazmat-offline-audits-xfail
       - selftest-annotations
       - selftest-annotations-advanced-security-exclusive-xfail
