@@ -102,7 +102,36 @@ jobs:
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
 
   selftest-inputs-globbing:
-    name: "TEST: placeholder (glob)"
+    name: "TEST: 'inputs' expands a glob pattern"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: $/
+        with:
+          advanced-security: false
+          inputs: tests/multiple-workflows/*.yaml
+
+  selftest-inputs-globbing-recursive:
+    name: "TEST: 'inputs' expands '**' recursively"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: $/
+        with:
+          advanced-security: false
+          # The only match sits two directories down, so a shell left at its
+          # default `globstar: off` reads this as `tests/*/three.yaml` and
+          # finds nothing. Expanding it here is what makes this pass.
+          inputs: tests/**/three.yaml
+
+  selftest-inputs-glob-no-match-xfail:
+    name: "TEST: an unmatched glob is reported (expected to fail)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,7 +143,9 @@ jobs:
         continue-on-error: true
         with:
           advanced-security: false
-          inputs: tests/multiple-workflows/*.yaml
+          # Nothing matches, so the pattern reaches zizmor unchanged and is
+          # reported instead of the run quietly auditing nothing.
+          inputs: tests/**/does-not-exist.yaml
 
       - name: assert failure
         env:
@@ -126,7 +157,7 @@ jobs:
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
 
   selftest-inputs-expanded:
-    name: "TEST: placeholder (expanded)"
+    name: "TEST: 'inputs' accepts one input per line"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -270,6 +301,9 @@ jobs:
       - selftest-plain
       - selftest-plain-gha-hazmat-xfail
       - selftest-inputs-globbing
+      - selftest-inputs-globbing-recursive
+      - selftest-inputs-glob-no-match-xfail
+      - selftest-inputs-expanded
       - selftest-plain-gha-hazmat-offline-audits-xfail
       - selftest-annotations
       - selftest-annotations-advanced-security-exclusive-xfail

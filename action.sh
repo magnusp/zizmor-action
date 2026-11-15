@@ -123,17 +123,50 @@ chmod +x "${zizmor}"
 #   correctly.
 # - We pass the GitHub token as an environment variable so that zizmor
 #   can run online audits/perform online collection if requested.
-# - ${GHA_ZIZMOR_INPUTS} is intentionally not quoted, so that
-#   it can expand according to the shell's word-splitting rules.
-#   However, we put it after `--` so that it can't be interpreted
-#   as one or more flags.
+# - ${GHA_ZIZMOR_INPUTS} holds one input per line. We put them after `--`
+#   so that an input can't be interpreted as one or more flags.
 cd "${GITHUB_WORKSPACE}"
 
-# shellcheck disable=SC2086
+# zizmor takes one INPUT argv element per input, but a composite action's
+# input arrives as a single string, so split it into one element per line.
+# Reading without `IFS=` trims the indentation a YAML block scalar leaves on
+# each line, while keeping any spaces inside a line.
+input_lines=()
+while read -r line; do
+    if [[ -n "${line}" ]]; then
+        input_lines+=("${line}")
+    fi
+done <<< "${GHA_ZIZMOR_INPUTS}"
+
+[[ "${#input_lines[@]}" -gt 0 ]] || die "'inputs' must contain at least one input"
+
+# Expand each line as a glob. Expanding here, instead of letting the shell do
+# it, keeps `*` and `**` meaning the same thing on every runner: otherwise the
+# shell's word-splitting and globstar settings decide what an input means, so
+# the same workflow can behave differently on a macOS runner than on Linux.
+# A pattern that matches nothing is passed through unchanged, so zizmor
+# reports it instead of the run quietly auditing less than was asked for.
+inputs_file="${RUNNER_TEMP}/zizmor-inputs"
+python3 - "${input_lines[@]}" > "${inputs_file}" <<'PY'
+import glob
+import sys
+
+for pattern in sys.argv[1:]:
+    for match in sorted(glob.glob(pattern, recursive=True)) or [pattern]:
+        print(match)
+PY
+
+zizmor_inputs=()
+while IFS= read -r line; do
+    zizmor_inputs+=("${line}")
+done < "${inputs_file}"
+
+# Every pattern contributes at least one argument: a glob that matches
+# nothing falls back to the pattern itself, so this array is never empty.
 GH_TOKEN="${GHA_ZIZMOR_TOKEN}" "${zizmor}" \
     "${arguments[@]}" \
     -- \
-    ${GHA_ZIZMOR_INPUTS} \
+    "${zizmor_inputs[@]}" \
         | tee "${output}"
 
 exitcode="${PIPESTATUS[0]}"

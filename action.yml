@@ -15,8 +15,14 @@ inputs:
     description: |
       The inputs to pass to `zizmor`.
 
-      This should be a whitespace-separated list of inputs. Inputs will
-      be split with shell splitting rules.
+      This should be a newline-separated list of inputs, usually written as
+      a YAML block scalar with one input per line. Each line is passed to
+      `zizmor` unchanged, except that glob patterns are expanded.
+
+      Globs are expanded by the action itself, so `*`, `?`, `[...]` and the
+      recursive `**` mean the same thing on every runner, regardless of the
+      shell or its `globstar` setting. A pattern that matches nothing is
+      passed through unchanged, so `zizmor` reports it as an invalid input.
     required: false
     default: "."
   collect:
