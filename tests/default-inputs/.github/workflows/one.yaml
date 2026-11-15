@@ -1,0 +1,16 @@
+name: zizmor-action default-inputs fixture
+
+# This is a stand-in repository root for the `inputs` selftests: it contains
+# exactly one workflow, so auditing the default `.` here must collect exactly
+# one input and nothing from the real repository around it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  entry:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "entry"

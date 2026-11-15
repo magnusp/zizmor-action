@@ -117,6 +117,50 @@ jobs:
         with:
           advanced-security: false
 
+  selftest-inputs-default-fixture:
+    name: "TEST: default '.' audits the workspace it runs in"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `inputs` defaults to '.', which is ${GITHUB_WORKSPACE} once the action
+      # runs, and the runner forbids a step from redefining GITHUB_WORKSPACE.
+      # So invoke the script directly and point the workspace at the fixture.
+      # If the default were wrong, the audit would fall back to the real
+      # repository and collect more than the fixture's single workflow.
+      - name: audit the fixture through the default input
+        run: |
+          set -euo pipefail
+
+          export GITHUB_ACTION_PATH="${PWD}"
+          export GITHUB_WORKSPACE="${PWD}/tests/default-inputs"
+          export RUNNER_OS="Linux"
+          export GHA_ZIZMOR_INPUTS="."
+          export GHA_ZIZMOR_VERSION="latest"
+          export GHA_ZIZMOR_PERSONA="regular"
+          export GHA_ZIZMOR_COLLECT="default"
+          export GHA_ZIZMOR_ONLINE_AUDITS="false"
+          export GHA_ZIZMOR_ADVANCED_SECURITY="false"
+          export GHA_ZIZMOR_ANNOTATIONS="false"
+          export GHA_ZIZMOR_COLOR="false"
+          export GHA_ZIZMOR_TOKEN="${{ github.token }}"
+          export GHA_ZIZMOR_FAIL_ON_NO_INPUTS="true"
+          export GHA_ZIZMOR_MIN_SEVERITY=""
+          export GHA_ZIZMOR_MIN_CONFIDENCE=""
+          export GHA_ZIZMOR_CONFIG=""
+
+          out="$(bash "${GITHUB_ACTION_PATH}/action.sh" 2>&1)" \
+            || { printf '%s\n' "${out}"; exit 1; }
+          printf '%s\n' "${out}"
+
+          # zizmor logs one "completed <path>" line per audited input.
+          audited="$(grep -c 'completed ' <<< "${out}")"
+          echo "audited ${audited} input(s)"
+          [[ "${audited}" == "1" ]] \
+            || { >&2 echo "expected the fixture's single workflow, got ${audited}"; exit 1; }
+
   selftest-inputs-globbing:
     name: "TEST: 'inputs' expands a glob pattern"
     runs-on: ubuntu-latest
@@ -317,6 +361,7 @@ jobs:
       - selftest-plain
       - selftest-plain-gha-hazmat-xfail
       - selftest-inputs-default
+      - selftest-inputs-default-fixture
       - selftest-inputs-globbing
       - selftest-inputs-globbing-recursive
       - selftest-inputs-glob-no-match-xfail
