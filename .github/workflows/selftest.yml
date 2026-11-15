@@ -109,21 +109,16 @@ jobs:
         with:
           persist-credentials: false
 
-      # Omits `inputs` entirely, so the runner has to apply `default: "."`.
-      # This is the only step that covers that wiring: dropping the default
-      # would leave `inputs` empty and fail here. It audits the repository
-      # root because that is what the workspace is; the value itself is
-      # asserted against a fixture below.
+      # Omits `inputs`, so the runner applies `default: "."`. This is the only
+      # step that covers that wiring.
       - uses: $/
         id: zizmor
         with:
           advanced-security: false
 
-      # `inputs` defaults to '.', which is ${GITHUB_WORKSPACE} once the action
-      # runs, and the runner forbids a step from redefining GITHUB_WORKSPACE.
-      # So invoke the script directly and point the workspace at the fixture.
-      # If the default were wrong, the audit would fall back to the real
-      # repository and collect more than the fixture's single workflow.
+      # `inputs` defaults to '.', which is ${GITHUB_WORKSPACE}, and a step may
+      # not redefine that. Invoke the script directly against a fixture: a
+      # wrong default would audit this repository and collect more than one.
       - name: assert the default audits only the fixture
         env:
           GHA_ZIZMOR_INPUTS: "."
@@ -142,7 +137,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # A step may not redefine GITHUB_* or RUNNER_* through `env:`.
           export GITHUB_ACTION_PATH="${PWD}"
           export GITHUB_WORKSPACE="${PWD}/tests/default-inputs"
           export RUNNER_OS="Linux"
@@ -151,40 +145,26 @@ jobs:
             || { printf '%s\n' "${out}"; exit 1; }
           printf '%s\n' "${out}"
 
-          # zizmor logs one "completed <path>" line per audited input.
           audited="$(grep -c 'completed ' <<< "${out}")"
-          echo "audited ${audited} input(s)"
           [[ "${audited}" == "1" ]] \
-            || { >&2 echo "expected the fixture's single workflow, got ${audited}"; exit 1; }
+            || { >&2 echo "expected 1 audited input (the fixture), got ${audited}"; exit 1; }
 
   selftest-inputs-globbing:
-    name: "TEST: 'inputs' expands a glob pattern"
+    name: "TEST: 'inputs' expands globs, one per line"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # three.yaml sits two directories down, so `**` has to recurse: plain
+      # bash expands `**` as `*` and would find nothing.
       - uses: $/
         with:
           advanced-security: false
-          inputs: tests/multiple-workflows/*.yaml
-
-  selftest-inputs-globbing-recursive:
-    name: "TEST: 'inputs' expands '**' recursively"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: $/
-        with:
-          advanced-security: false
-          # The only match sits two directories down, so a shell left at its
-          # default `globstar: off` reads this as `tests/*/three.yaml` and
-          # finds nothing. Expanding it here is what makes this pass.
-          inputs: tests/**/three.yaml
+          inputs: |
+            tests/multiple-workflows/*.yaml
+            tests/**/three.yaml
 
   selftest-inputs-glob-no-match-xfail:
     name: "TEST: an unmatched glob is reported (expected to fail)"
@@ -211,23 +191,6 @@ jobs:
           echo "xfail ${JOB_NAME}: ${XFAIL}"
 
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
-
-  selftest-inputs-expanded:
-    name: "TEST: 'inputs' accepts one input per line"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: $/
-        id: zizmor
-        continue-on-error: false
-        with:
-          advanced-security: false
-          inputs: |
-            tests/multiple-workflows/one.yaml
-            tests/multiple-workflows/two.yaml
 
   selftest-plain-gha-hazmat-offline-audits-xfail:
     name: "TEST: known findings in woodruffw/gha-hazmat with offline audits (expected to fail when 'advanced-security: false')"
@@ -358,9 +321,7 @@ jobs:
       - selftest-plain-gha-hazmat-xfail
       - selftest-inputs-default
       - selftest-inputs-globbing
-      - selftest-inputs-globbing-recursive
       - selftest-inputs-glob-no-match-xfail
-      - selftest-inputs-expanded
       - selftest-plain-gha-hazmat-offline-audits-xfail
       - selftest-annotations
       - selftest-annotations-advanced-security-exclusive-xfail
