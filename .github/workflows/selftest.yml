@@ -102,9 +102,13 @@ jobs:
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
 
   selftest-inputs-globbing:
-    name: "TEST: placeholder"
+    name: "TEST: placeholder (glob)"
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - uses: $/
         id: zizmor
         continue-on-error: true
@@ -112,13 +116,26 @@ jobs:
           advanced-security: false
           inputs: tests/multiple-workflows/*.yaml
 
+      - name: assert failure
+        env:
+          XFAIL: ${{ steps.zizmor.outcome == 'failure' }}
+          JOB_NAME: ${{ github.job }}
+        run: |
+          echo "xfail ${JOB_NAME}: ${XFAIL}"
+
+          [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
+
   selftest-inputs-expanded:
-    name: "TEST: placeholder"
+    name: "TEST: placeholder (expanded)"
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - uses: $/
         id: zizmor
-        continue-on-error: true
+        continue-on-error: false
         with:
           advanced-security: false
           inputs: |
