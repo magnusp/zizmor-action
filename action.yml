@@ -13,10 +13,11 @@ outputs:
 inputs:
   inputs:
     description: |
-      The inputs to pass to `zizmor`.
-
-      This should be a whitespace-separated list of inputs. Inputs will
-      be split with shell splitting rules.
+      The inputs to pass to `zizmor`, one per line, usually a YAML block
+      scalar. Each line is passed through unchanged except that globs are
+      expanded by the action itself, so `*`, `?`, `[...]` and `**` (recursive)
+      behave the same on every runner. A pattern that matches nothing is
+      passed through, so `zizmor` reports it.
     required: false
     default: "."
   collect:

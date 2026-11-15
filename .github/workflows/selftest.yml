@@ -101,6 +101,97 @@ jobs:
 
           [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
 
+  selftest-inputs-default:
+    name: "TEST: 'inputs' defaults to '.'"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Omits `inputs`, so the runner applies `default: "."`. This is the only
+      # step that covers that wiring.
+      - uses: $/
+        id: zizmor
+        with:
+          advanced-security: false
+
+      # `inputs` defaults to '.', which is ${GITHUB_WORKSPACE}, and a step may
+      # not redefine that. Invoke the script directly against a fixture: a
+      # wrong default would audit this repository and collect more than one.
+      - name: assert the default audits only the fixture
+        env:
+          GHA_ZIZMOR_INPUTS: "."
+          GHA_ZIZMOR_VERSION: latest
+          GHA_ZIZMOR_PERSONA: regular
+          GHA_ZIZMOR_COLLECT: default
+          GHA_ZIZMOR_ONLINE_AUDITS: "false"
+          GHA_ZIZMOR_ADVANCED_SECURITY: "false"
+          GHA_ZIZMOR_ANNOTATIONS: "false"
+          GHA_ZIZMOR_COLOR: "false"
+          GHA_ZIZMOR_TOKEN: ${{ github.token }}
+          GHA_ZIZMOR_FAIL_ON_NO_INPUTS: "true"
+          GHA_ZIZMOR_MIN_SEVERITY: ""
+          GHA_ZIZMOR_MIN_CONFIDENCE: ""
+          GHA_ZIZMOR_CONFIG: ""
+        run: |
+          set -euo pipefail
+
+          export GITHUB_ACTION_PATH="${PWD}"
+          export GITHUB_WORKSPACE="${PWD}/tests/default-inputs"
+          export RUNNER_OS="Linux"
+
+          out="$(bash "${GITHUB_ACTION_PATH}/action.sh" 2>&1)" \
+            || { printf '%s\n' "${out}"; exit 1; }
+          printf '%s\n' "${out}"
+
+          audited="$(grep -c 'completed ' <<< "${out}")"
+          [[ "${audited}" == "1" ]] \
+            || { >&2 echo "expected 1 audited input (the fixture), got ${audited}"; exit 1; }
+
+  selftest-inputs-globbing:
+    name: "TEST: 'inputs' expands globs, one per line"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # three.yaml sits two directories down, so `**` has to recurse: plain
+      # bash expands `**` as `*` and would find nothing.
+      - uses: $/
+        with:
+          advanced-security: false
+          inputs: |
+            tests/multiple-workflows/*.yaml
+            tests/**/three.yaml
+
+  selftest-inputs-glob-no-match-xfail:
+    name: "TEST: an unmatched glob is reported (expected to fail)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: $/
+        id: zizmor
+        continue-on-error: true
+        with:
+          advanced-security: false
+          # Nothing matches, so the pattern reaches zizmor unchanged and is
+          # reported instead of the run quietly auditing nothing.
+          inputs: tests/**/does-not-exist.yaml
+
+      - name: assert failure
+        env:
+          XFAIL: ${{ steps.zizmor.outcome == 'failure' }}
+          JOB_NAME: ${{ github.job }}
+        run: |
+          echo "xfail ${JOB_NAME}: ${XFAIL}"
+
+          [[ "${XFAIL}" == "true" ]] || { >&2 echo "expected step to fail"; exit 1; }
+
   selftest-plain-gha-hazmat-offline-audits-xfail:
     name: "TEST: known findings in woodruffw/gha-hazmat with offline audits (expected to fail when 'advanced-security: false')"
     runs-on: ubuntu-latest
@@ -228,6 +319,9 @@ jobs:
       - selftest-version-nonexistent-xfail
       - selftest-plain
       - selftest-plain-gha-hazmat-xfail
+      - selftest-inputs-default
+      - selftest-inputs-globbing
+      - selftest-inputs-glob-no-match-xfail
       - selftest-plain-gha-hazmat-offline-audits-xfail
       - selftest-annotations
       - selftest-annotations-advanced-security-exclusive-xfail

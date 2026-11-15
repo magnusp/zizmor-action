@@ -140,8 +140,19 @@ jobs:
 
 *Default*: `.`
 
-`inputs` is a whitespace-separated list of inputs to pass to `zizmor`.
-It defaults to `.` (the current working directory).
+`inputs` is a list of inputs to pass to `zizmor`, one per line, usually
+written as a YAML block scalar. It defaults to `.` (the current working
+directory).
+
+Each line is passed through unchanged, except that globs are expanded by the
+action itself, so `*`, `?`, `[...]` and `**` (recursive) behave the same on
+every runner whatever its shell or `globstar` setting. A pattern that matches
+nothing is passed through, so `zizmor` reports it.
+
+> [!NOTE]
+> As in most shells, globs do not match hidden files or directories, so
+> `inputs: '*.yml'` finds nothing under `.github/workflows`. Use `inputs: .`
+> to audit the whole repository.
 
 This set of inputs can be anything `zizmor` would normally accept as an
 input. For example, you can audit one or more files, directories, or remote

@@ -1,0 +1,11 @@
+name: zizmor-action default-inputs fixture
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  entry:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "entry"

@@ -123,17 +123,33 @@ chmod +x "${zizmor}"
 #   correctly.
 # - We pass the GitHub token as an environment variable so that zizmor
 #   can run online audits/perform online collection if requested.
-# - ${GHA_ZIZMOR_INPUTS} is intentionally not quoted, so that
-#   it can expand according to the shell's word-splitting rules.
-#   However, we put it after `--` so that it can't be interpreted
-#   as one or more flags.
+# - ${GHA_ZIZMOR_INPUTS} holds one input per line, expanded below. They go
+#   after `--` so that an input can't be interpreted as one or more flags.
 cd "${GITHUB_WORKSPACE}"
 
-# shellcheck disable=SC2086
+# zizmor takes one INPUT argument per input, while a composite action's input
+# is a single string. Splitting and expanding here, rather than in the shell,
+# makes `**` recursive on every runner whatever its shell or globstar
+# setting, and keeps spaces inside a path intact.
+zizmor_inputs=()
+while IFS= read -r input; do
+    zizmor_inputs+=("${input}")
+done < <(python3 - "${GHA_ZIZMOR_INPUTS}" <<'PY'
+import glob
+import sys
+
+for line in sys.argv[1].splitlines():
+    pattern = line.strip()
+    if pattern:
+        print(*sorted(glob.glob(pattern, recursive=True)) or [pattern], sep="\n")
+PY
+)
+
+[[ "${#zizmor_inputs[@]}" -gt 0 ]] || die "'inputs' must contain at least one input"
 GH_TOKEN="${GHA_ZIZMOR_TOKEN}" "${zizmor}" \
     "${arguments[@]}" \
     -- \
-    ${GHA_ZIZMOR_INPUTS} \
+    "${zizmor_inputs[@]}" \
         | tee "${output}"
 
 exitcode="${PIPESTATUS[0]}"
